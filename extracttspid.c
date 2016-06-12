@@ -4,7 +4,6 @@
 
 #define BUF_SIZE 4096*188
 #define TS_SYNC_BYTE 0x47
-#define PID_LIST_SIZE 64
 
 typedef unsigned int pid_t;
 
@@ -86,9 +85,6 @@ int main(int argc, char* argv[])
                 }
                 extractbyte += 188;
                 ++extractcnt;
-                if (extractcnt%1000) {
-                    fflush(outfile);
-                }
             }
             h += 186;
         }
