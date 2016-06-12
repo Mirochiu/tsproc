@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define BUF_SIZE 1024*188
+#define BUF_SIZE 4096*188
 #define TS_SYNC_BYTE 0x47
 #define PID_LIST_SIZE 64
 
@@ -10,7 +10,7 @@ typedef unsigned int pid_t;
 
 typedef struct pid_list_s {
     pid_t* PidList;
-    unsigned int PidNum; 
+    unsigned int PidNum;
     unsigned int Capacity;
 } *PidListHandle;
 
@@ -22,13 +22,12 @@ typedef struct pid_list_s {
 
 // Args:
 // [in]cap      : the capacity of the pid list. Rec=32
-// [in]clear    : set all pids to 0 in the list. Rec=0
 // [in&out]h    : gave a pointer of the pid list handler. Upon succeeful
 //                the function the arg h will got the address of the handler.
 // Ret:
 // On success, zero is returned. 
 // Otherwise, the error code is returned.
-int CreatePidList(unsigned int cap, int clear, PidListHandle *h) {
+int CreatePidList(unsigned int cap, PidListHandle *h) {
     if (!h) return PIDLIST_ERR_INVALID_ARGS;
     *h = malloc(sizeof(struct pid_list_s));
     if (!*h) return PIDLIST_ERR_ALLOCATE_MEM;
@@ -39,7 +38,7 @@ int CreatePidList(unsigned int cap, int clear, PidListHandle *h) {
         (*h) = 0;
         return PIDLIST_ERR_ALLOCATE_MEM;
     }
-    if (clear) memset((*h)->PidList, 0xffff, sizeof(pid_t)*cap);
+    memset((*h)->PidList, 0xffff, sizeof(pid_t)*cap);
     (*h)->PidNum = 0;
     (*h)->Capacity = cap;
     return PIDLIST_OPERATION_SUCCEED;
@@ -64,10 +63,8 @@ int DiscoverPidsFromBuffer(PidListHandle hdl, void* buf, unsigned int len) {
     pid_t pid;
     if (!hdl) return PIDLIST_ERR_INVALID_ARGS;
     if (!buf) return PIDLIST_ERR_INVALID_ARGS;
-    if (len%188 != 0) return PIDLIST_ERR_INVALID_ARGS;
-    // if you doesn't want to reject the length of buf.
-    // please remove one line code above and try the following code.
-    // len -= len%188;
+    //if (len%188 != 0) return PIDLIST_ERR_INVALID_ARGS;
+    len -= len%188;
     h = buf;
     e = h + len;
     while (h != e) {
@@ -109,21 +106,25 @@ int main(int argc, char* argv[])
         return -1;
     }
 
-    ret = CreatePidList(32, 1, &hdl);
+    ret = CreatePidList(32, &hdl);
     if (PIDLIST_OPERATION_SUCCEED != ret) {
         fprintf(stderr, "cannot create pid list\n");
         return -1;
     }
 
+    procbyte = 0;
     readlen = fread(Buf, 1, BUF_SIZE, infile);
     while (readlen > 0) {
         if (readlen%188 != 0) {
-            fprintf(stderr, "readlen error %d != 188*N\n", readlen);
-            break;
+            fprintf(stderr, "warning: readlen error %d != 188*N\n", readlen);
         }
         ret = DiscoverPidsFromBuffer(hdl, Buf, readlen);
         if (PIDLIST_ERR_LIST_FULL == ret) {
             fprintf(stderr, "PidList is full!, exit\n");
+            break;
+        }
+        else if (ret < 0) {
+            fprintf(stderr, "DiscoverPidsFromBuffer failed %d, exit\n", ret);
             break;
         }
         if (readlen > 0) {
