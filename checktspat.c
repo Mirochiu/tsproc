@@ -7,6 +7,8 @@
 #define TS_PID_PAT 0x00
 #define NO_LAST_FOUND -1
 
+#define GET_TS_PID(pPkt)        ((((pPkt)[1]<<8)|(pPkt)[2])&0x1fff)
+
 typedef unsigned int pid_t;
 
 int main(int argc, char* argv[])
@@ -50,7 +52,7 @@ int main(int argc, char* argv[])
                 readlen = 0;
                 break;
             }
-            pid = (((*++h)<<8)|*(++h)) & 0x1FFF;
+            pid = GET_TS_PID(h);
             if (TS_PID_PAT == pid) {
                 if (NO_LAST_FOUND == lastfound) {
                     firstpat = procbyte + (h-Buf); // current byte
@@ -62,7 +64,7 @@ int main(int argc, char* argv[])
                 lastfound = procbyte + (h-Buf);
                 ++patcnt;
             }
-            h += 186;
+            h += 188;
         }
         if (readlen > 0) {
             tscnt += readlen/188;
