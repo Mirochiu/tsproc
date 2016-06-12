@@ -86,7 +86,7 @@ int main(int argc, char* argv[])
     printf("TS packets : %d\n", tscnt);
     printf("PAT counts : %d\n", patcnt);
     printf("PAT-TS rate : %.3lf%%\n", patcnt/(double)tscnt*100.0);
-    printf("Average PAT distance : %.2lf\n", sumpatdif/(double)(patcnt-1));
+    printf("Average PAT distance : %.2lf byte %.2lf ts-pkt\n", sumpatdif/(double)(patcnt-1), sumpatdif/(double)(patcnt-1)/188);
 
     return 0;
 }

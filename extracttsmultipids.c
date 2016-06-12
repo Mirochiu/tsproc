@@ -4,7 +4,6 @@
 
 #define BUF_SIZE 4096*188
 #define TS_SYNC_BYTE 0x47
-
 #define GET_TS_PID(pPkt)        ((((pPkt)[1]<<8)|(pPkt)[2])&0x1fff)
 
 typedef unsigned int pid_t;
@@ -12,14 +11,17 @@ typedef unsigned int pid_t;
 int main(int argc, char* argv[])
 {
     FILE *infile, *outfile;
-    pid_t pid, extractpid;
-    int readlen, writelen, procbyte, extractbyte, extractcnt;
+    pid_t pid;
+    int readlen, writelen, procbyte, extractbyte, extractcnt, idx;
     char outfname[128] = {0};
     unsigned char Buf[BUF_SIZE];
     unsigned char *h, *e;
+    pid_t* ExtPid = 0;
+    int PidNum = 0;
 
-    if (argc <= 2) {
-        fprintf(stderr, "Usage: %s <ts-file> <pid> [<out-file>]\n", argv[0]);
+    if (argc <= 3) {
+        fprintf(stderr, "Usage: %s <ts-file> <out-file> <pid> [<2nd-pid> [<3rd-pid> [...]]\n", argv[0]);
+        fprintf(stderr, "  <out-file> : if set '-', we will generate the output file name automatically\n");
         return -1;
     }
 
@@ -29,12 +31,9 @@ int main(int argc, char* argv[])
         perror(argv[0]);
         return -1;
     }
-    
-    extractpid = atoi(argv[2]) & 0x1FFF;
-    printf("extract pid: %d\n", extractpid);
 
-    if (argc > 3) {
-        strncpy(outfname, argv[3], sizeof(outfname)-1);
+    if (argv[2][1] != '-') {
+        strncpy(outfname, argv[2], sizeof(outfname)-1);
     }
     else {
 #if defined(_WIN32)
@@ -50,13 +49,26 @@ int main(int argc, char* argv[])
             dot = argv[1] + strlen(argv[1]);
             printf("dot=%p '%c'\n", dot, *dot);
         }
-        snprintf(outfname, sizeof(outfname)-1, "%.*s-%d%s", dot-argv[1], argv[1], extractpid, dot);
+        snprintf(outfname, sizeof(outfname)-1, "%.*s-multipids%s", dot-argv[1], argv[1], dot);
     }
     printf("output file: %s\n", outfname);
     outfile = fopen(outfname, "wb");
     if (!outfile) {
         perror(argv[0]);
         return -1;
+    }
+    
+    PidNum = argc-3;
+    ExtPid = malloc(sizeof(pid_t)*PidNum);
+    if (!ExtPid) {
+        perror(argv[0]);
+        fputs("cannot allocate more memory for pid list", stderr);
+        return -1;
+    }
+    printf("Extract %d Pid List:\n", PidNum);
+    for (idx=0 ; idx<PidNum ; ++idx) {
+        ExtPid[idx] = atoi(argv[3+idx]) & 0x1FFF;
+        printf(" Pid %2d : %04d 0x%-04X\n", idx+1, ExtPid[idx], ExtPid[idx]);
     }
 
     procbyte = 0;
@@ -77,7 +89,9 @@ int main(int argc, char* argv[])
                 break;
             }
             pid = GET_TS_PID(h);
-            if (pid == extractpid) {
+            for(idx=0 ; idx<PidNum && pid!=ExtPid[idx]; ++idx)
+                ; // empty
+            if (idx != PidNum) {
                 writelen = fwrite(h, 1, 188, outfile);
                 if (188 != writelen) {
                     perror(argv[0]);
@@ -102,8 +116,12 @@ int main(int argc, char* argv[])
         perror(argv[0]);
     }
     fclose(infile);
-
+    
     puts  ("\n========= [ Statistics ] =========");
+    printf("Selected %d Pids\n", PidNum);
+    for (idx=0 ; idx<PidNum ; ++idx) {
+        printf("  Pid %d : %4d 0x%-04X\n", idx+1, ExtPid[idx], ExtPid[idx]);
+    }
     printf("Processed bytes : %d\n", procbyte);
     printf("Extracted bytes : %d\n", extractbyte);
     printf("Extrac/Proc percantage : %.3lf%%\n", extractbyte/(double)procbyte*100.0);
@@ -114,5 +132,7 @@ int main(int argc, char* argv[])
     fclose(outfile);
     puts("finish");
 
+    free(ExtPid);
+    
     return 0;
 }

@@ -106,7 +106,7 @@ int main(int argc, char* argv[])
     if (NOT_FOUND == firstpat) {
         fputs("Cannot found the first pat in the specified file\n", stderr);
         return -1;
-    }    
+    }
     fclose(infile);
 
     puts  ("\n========= [ Informations ] =========");
